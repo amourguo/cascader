@@ -96,7 +96,7 @@ $ npm i --save vue-awesome
 事件携带参数 {Array} [ {Object}, ... ]
 
 ``` HTML
-<Cascader :cascader-submit="{Function} eventHandler" />
+<Cascader @cascader-submit="{Function} eventHandler" />
 ```
 
 ``` JavaScript
