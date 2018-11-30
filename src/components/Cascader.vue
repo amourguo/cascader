@@ -5,7 +5,7 @@
         <option value="">{{ t(CONSTANTS.PLZ_SELECT_DISTRICT, 1) }}</option>
         <option v-for="(lvl1, idx1) in districts" v-bind:key="lvl1.name" v-bind:value="idx1">{{ lvl1.name }}</option>
       </select>
-      <input v-else class="field field-lvl1" v-model="newDistricts[0].text" :placeholder="t(CONSTANTS.PLZ_INPUT_DISTRICT, 1)" />
+      <input v-else class="field field-lvl1" v-model="newDistricts[0].text" :placeholder="t(CONSTANTS.PLZ_INPUT_DISTRICT, 1)" :maxlength="maxInputLen" />
       <button v-if="newDistricts[0].type === 0" v-on:click="swapType([0])">
         <v-icon name="edit" />
       </button>
@@ -24,7 +24,7 @@
           <option value="">{{ t(CONSTANTS.PLZ_SELECT_DISTRICT, 2) }}</option>
           <option v-for="(lvl2, idx2) in (newDistricts[0].index !== '' ? districts[newDistricts[0].index].children : [])" v-bind:key="lvl2.name" v-bind:value="idx2">{{ lvl2.name }}</option>
         </select>
-        <input v-else class="field field-lvl2" v-model="newLvl2.text" :placeholder="t(CONSTANTS.PLZ_INPUT_DISTRICT, 2)" />
+        <input v-else class="field field-lvl2" v-model="newLvl2.text" :placeholder="t(CONSTANTS.PLZ_INPUT_DISTRICT, 2)" :maxlength="maxInputLen" />
         <button v-if="newLvl2.type === 0" v-on:click="swapType([0, key2])">
           <v-icon name="edit" />
         </button>
@@ -46,7 +46,7 @@
             <option value="">{{ t(CONSTANTS.PLZ_SELECT_DISTRICT, 3) }}</option>
             <option v-for="(lvl3, idx3) in ((newDistricts[0].index !== '' && newLvl2.index !== '') ? districts[newDistricts[0].index].children[newLvl2.index].children : [])" v-bind:key="lvl3.name" v-bind:value="idx3">{{ lvl3.name }}</option>
           </select>
-          <input v-else class="field field-lvl3" v-model="newLvl3.text" :placeholder="t(CONSTANTS.PLZ_INPUT_DISTRICT, 3)" />
+          <input v-else class="field field-lvl3" v-model="newLvl3.text" :placeholder="t(CONSTANTS.PLZ_INPUT_DISTRICT, 3)" :maxlength="maxInputLen" />
           <button v-if="newLvl3.type === 0" v-on:click="swapType([0, key2, key3])">
             <v-icon name="edit" />
           </button>
@@ -62,10 +62,14 @@
 
     </div>
 
-    <button class="submit" v-on:click="cascaderSubmit" v-bind:disabled="hasError()">
-      提交
-    </button>
-
+    <div class="action-buttons">
+      <button class="submit" v-on:click="cascaderSubmit" v-bind:disabled="hasError()">
+        确定
+      </button>
+      <button class="cancel" v-on:click="cascaderCancel">
+        取消
+      </button>
+    </div>
   </div>
 </template>
 
@@ -96,6 +100,7 @@ export default {
           type: 0, // 0:Dropdown, 1:Text
           // error feature has been moved to errMsgs
           // 0: No Errors, 1: Empty dist name, 2: invalid swapping, 3: Incomplete lvls, 4: Duplicated
+          // 5: Invalid Text
           error: [0, 'No Errors'],
           children: null
         }
@@ -106,7 +111,8 @@ export default {
         INVALID_SWAPPING: '⚠ 只有当％s1级片区为下拉菜单时，％s2级片区才能切换为下拉菜单',
         PLZ_COMPLETE_DISTRICT: '⚠ 请补足三个级别的片区',
         DISTRICT_NAME_REQUIRED: '⚠ 请选择或输入％s1级片区',
-        DUPLICATED_DISTRICT: '⚠ 片区重复'
+        DUPLICATED_DISTRICT: '⚠ 片区重复',
+        TEXT_IS_NOT_VALID: '⚠ 输入内容仅限字母、数字和中文'
       }
     }
   },
@@ -117,6 +123,10 @@ export default {
       default: function () {
         return []
       }
+    },
+    maxInputLen: {
+      type: Number,
+      default: 10
     }
   },
   methods: {
@@ -126,31 +136,57 @@ export default {
         this.$emit('cascader-submit', normalizedDists)
       }
     },
+    cascaderCancel: function () {
+      this.$emit('cascader-cancel')
+    },
+    mixUpDist: function (origDist, newDist) {
+      // const origDist1 = this.getOrigDistByIdx([0])
+      const objDist = {}
+      if (newDist.type === 0) {
+        const keys1 = Object.keys(origDist).filter(key => key !== 'children')
+        keys1.forEach((key) => {
+          objDist[key] = origDist[key]
+        })
+        // const name1 = this.newDistricts[0].type === 0 ? this.getOrigDistByIdx([0]).name : this.newDistricts[0].text
+      } else {
+        objDist.name = newDist.text
+      }
+      objDist.children = []
+      return objDist
+    },
     normalizeNewDists: function () {
+      // New feature@2018-11-29: return data with hbType, hbParentId, hbRemar, value
       const retDists = []
       const specimen = this.newDistricts[0].children
       if (!specimen || specimen.length < 1) {
         return []
       }
-      const name1 = this.newDistricts[0].type === 0 ? this.getNameByIdx([0]) : this.newDistricts[0].text
-      retDists[0] = {
-        name: name1,
-        children: []
-      }
+
+      retDists[0] = this.mixUpDist(this.getOrigDistByIdx([this.newDistricts[0].index]), this.newDistricts[0])
+      // {
+      //   name: name1,
+      //   children: []
+      // }
 
       for (let i = 0; i < specimen.length; i++) {
-        const name2 = specimen[i].type === 0 ? this.getNameByIdx([0, specimen[i].index]) : specimen[i].text
+        /*
+        const name2 = specimen[i].type === 0 ? this.getOrigDistByIdx([0, specimen[i].index]).name : specimen[i].text
         retDists[0].children[i] = {
           name: name2,
           children: []
         }
+        */
+        retDists[0].children[i] = this.mixUpDist(this.getOrigDistByIdx([this.newDistricts[0].index, specimen[i].index]), specimen[i])
         const specimen2 = specimen[i].children || []
         for (let j = 0; j < specimen2.length; j++) {
-          const name3 = specimen2[j].type === 0 ? this.getNameByIdx([0, specimen[i].index, specimen2[j].index]) : specimen2[j].text
+          /*
+          const name3 = specimen2[j].type === 0 ? this.getOrigDistByIdx([0, specimen[i].index, specimen2[j].index]).name : specimen2[j].text
           retDists[0].children[i].children[j] = {
             name: name3,
             children: null
           }
+          */
+          retDists[0].children[i].children[j] = this.mixUpDist(this.getOrigDistByIdx([this.newDistricts[0].index, specimen[i].index, specimen2[j].index]), specimen2[j])
         }
       }
       return retDists
@@ -182,7 +218,7 @@ export default {
           context = (context.children || context)[lvl]
           return context.index
         })
-        arrLvlObj.text = this.getNameByIdx(arrIdx)
+        arrLvlObj.text = this.getOrigDistByIdx(arrIdx).name
       }
     },
     addSubLvl: function (arrLvl) {
@@ -234,12 +270,16 @@ export default {
       }
 
       if (arrLvlObj.type === 0) {
-        const isIdxEmpty = arrLvlObj.index === ''
+        const isIdxEmpty = arrLvlObj.index.toString().trim() === ''
         return isIdxEmpty
       } else {
-        const isTxtEmpty = arrLvlObj.text === ''
+        const isTxtEmpty = arrLvlObj.text.trim() === ''
         return isTxtEmpty
       }
+    },
+    isValidText: function (text) {
+      const reg = /^[a-zA-Z0-9\u4e00-\u9fa5]+$/
+      return reg.test(text)
     },
     hasError: function () {
       for (let i = 0; i < this.errMsgs.length; i++) {
@@ -290,9 +330,9 @@ export default {
       for (let i = 0; i < specimen.length; i++) {
         const specimen2 = specimen[i].children || []
         for (let j = 0; j < specimen2.length; j++) {
-          const name1 = this.newDistricts[0].type === 0 ? this.getNameByIdx([0]) : this.newDistricts[0].text
-          const name2 = specimen[i].type === 0 ? this.getNameByIdx([0, specimen[i].index]) : specimen[i].text
-          const name3 = specimen2[j].type === 0 ? this.getNameByIdx([0, specimen[i].index, specimen2[j].index]) : specimen2[j].text
+          const name1 = this.newDistricts[0].type === 0 ? this.getOrigDistByIdx([this.newDistricts[0].index]).name : this.newDistricts[0].text
+          const name2 = specimen[i].type === 0 ? this.getOrigDistByIdx([this.newDistricts[0].index, specimen[i].index]).name : specimen[i].text
+          const name3 = specimen2[j].type === 0 ? this.getOrigDistByIdx([this.newDistricts[0].index, specimen[i].index, specimen2[j].index]).name : specimen2[j].text
           if (name1 && name2 && name3) {
             if (this.checkDuplicate([name1, name2, name3])) {
               retDupList.push([0, i, j])
@@ -311,8 +351,8 @@ export default {
       for (let i = 0; i < specimen.length; i++) {
         if (specimen.length > 1) {
           for (let ii = i + 1; ii < specimen.length; ii++) {
-            const name1 = specimen[i].type === 0 ? this.getNameByIdx([0, specimen[i].index]) : specimen[i].text
-            const name2 = specimen[ii].type === 0 ? this.getNameByIdx([0, specimen[ii].index]) : specimen[ii].text
+            const name1 = specimen[i].type === 0 ? this.getOrigDistByIdx([this.newDistricts[0], specimen[i].index]).name : specimen[i].text
+            const name2 = specimen[ii].type === 0 ? this.getOrigDistByIdx([this.newDistricts[0], specimen[ii].index]).name : specimen[ii].text
             if (name1 === name2 && name1 !== '' && name1 !== undefined) {
               return [
                 [0, i],
@@ -326,8 +366,8 @@ export default {
         if (specimen2.length > 1) {
           for (let j = 0; j < specimen2.length; j++) {
             for (let jj = j + 1; jj < specimen2.length; jj++) {
-              const name21 = specimen2[j].type === 0 ? this.getNameByIdx([0, specimen[i].index, specimen2[j].index]) : specimen2[j].text
-              const name22 = specimen2[jj].type === 0 ? this.getNameByIdx([0, specimen[i].index, specimen2[jj].index]) : specimen2[jj].text
+              const name21 = specimen2[j].type === 0 ? this.getOrigDistByIdx([this.newDistricts[0], specimen[i].index, specimen2[j].index]).name : specimen2[j].text
+              const name22 = specimen2[jj].type === 0 ? this.getOrigDistByIdx([this.newDistricts[0], specimen[i].index, specimen2[jj].index]).name : specimen2[jj].text
               if (name21 === name22 && name21 !== '' && name21 !== undefined) {
                 return [
                   [0, i, j],
@@ -340,7 +380,7 @@ export default {
       }
       return []
     },
-    getNameByIdx: function (arrIdx) {
+    getOrigDistByIdx: function (arrIdx) {
       const idxDepth = arrIdx.length
       let objDist = this.districts
       for (let i = 0; i < idxDepth; i++) {
@@ -354,7 +394,7 @@ export default {
           }
         }
       }
-      return objDist.name
+      return objDist // .name
     },
     isDuplicatedItem: function (item, list) {
       const listLen = list.length
@@ -408,10 +448,12 @@ export default {
             lvl1Dist[i].type === 1 && lvl1Dist[i].text === ''
           )
 
-          if (!isEmpty1 && (!lvl1Dist[i].children || lvl1Dist[i].children.length < 1)) {
-            err1 = [3, this.CONSTANTS.PLZ_COMPLETE_DISTRICT]
-          } else if (isEmpty1) {
+          if (isEmpty1) {
             err1 = [1, this.t(this.CONSTANTS.DISTRICT_NAME_REQUIRED, 1)]
+          } else if (lvl1Dist[i].type === 1 && !this.isValidText(lvl1Dist[i].text)) {
+            err1 = [5, this.t(this.CONSTANTS.TEXT_IS_NOT_VALID)]
+          } else if (!isEmpty1 && (!lvl1Dist[i].children || lvl1Dist[i].children.length < 1)) {
+            err1 = [3, this.CONSTANTS.PLZ_COMPLETE_DISTRICT]
           } else { // if (!isIdxEmpty)
             err1 = [0, 'No Errors']
           }
@@ -431,10 +473,12 @@ export default {
 
             if (lvl2Dist[j].error[0] > 0) {
               err2 = lvl2Dist[j].error
-            } else if (!isEmpty2 && (!lvl2Dist[j].children || lvl2Dist[j].children.length < 1)) {
-              err2 = [3, this.CONSTANTS.PLZ_COMPLETE_DISTRICT]
             } else if (isEmpty2) {
               err2 = [1, this.t(this.CONSTANTS.DISTRICT_NAME_REQUIRED, 2)]
+            } else if (lvl2Dist[j].type === 1 && !this.isValidText(lvl2Dist[j].text)) {
+              err2 = [5, this.t(this.CONSTANTS.TEXT_IS_NOT_VALID)]
+            } else if (!isEmpty2 && (!lvl2Dist[j].children || lvl2Dist[j].children.length < 1)) {
+              err2 = [3, this.CONSTANTS.PLZ_COMPLETE_DISTRICT]
             } else if (this.isDuplicatedItem([i, j], dupItems)) {
               err2 = [4, this.CONSTANTS.DUPLICATED_DISTRICT]
             } else { // if (!isIdxEmpty)
@@ -459,6 +503,8 @@ export default {
                 err3 = lvl3Dist[k].error
               } else if (isEmpty3) {
                 err3 = [1, this.t(this.CONSTANTS.DISTRICT_NAME_REQUIRED, 3)]
+              } else if (lvl3Dist[k].type === 1 && !this.isValidText(lvl3Dist[k].text)) {
+                err3 = [5, this.t(this.CONSTANTS.TEXT_IS_NOT_VALID)]
               } else if (this.isDuplicatedItem([i, j, k], dupItems)) {
                 err3 = [4, this.CONSTANTS.DUPLICATED_DISTRICT]
               } else { // if (!isIdxEmpty)
@@ -576,10 +622,25 @@ a {
   font-weight: bold;
   margin-top: 1em;
 }
-.cascader-wrapper button.submit:disabled {
+.cascader-wrapper .action-buttons {
+
+}
+.cascader-wrapper .action-buttons>button.submit:disabled {
   background-color: #a0a0a0;
   border: 1px solid #a0a0a0;
   cursor: not-allowed;
+  padding: 0 2em;
+  height: 2em;
+  line-height: 2em;
+  border-radius: 5px;
+  font-size: 14px;
+  font-weight: normal;
+  margin-top: 1em;
+}
+.cascader-wrapper .action-buttons>button.cancel {
+  background-color: #fff;
+  color: #456e8f;
+  border: 1px solid #456e8f;
   padding: 0 2em;
   height: 2em;
   line-height: 2em;

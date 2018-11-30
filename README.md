@@ -96,29 +96,33 @@ $ npm i --save vue-awesome
 事件携带参数 {Array} [ {Object}, ... ]
 
 ``` HTML
-<Cascader @cascader-submit="{Function} eventHandler" />
+<Cascader @cascader-submit="{Function} eventHandler" @cascader-cancel="{Function} eventHandler" />
 ```
 
 ``` JavaScript
 [
-  {
-    name: '北京',
-    children: [
-      {
-        name: '海淀',
-        children: [
-          {
-            name: '二里庄',
-            children: null
-          },
-          {
-            name: '成府路',
-            children: null
-          }
-        ]
-      }
-    ]
-  }
+   {
+      "hbType":"0",
+      "hbParentId":"0",
+      "hbRemark":"1级",
+      "name":"爱车",
+      "value":"49dd73da-b3e2-4a86-9b24-438f9b60f628",
+      "children":[
+         {
+            "hbType":"1",
+            "hbParentId":"49dd73da-b3e2-4a86-9b24-438f9b60f628",
+            "hbRemark":"2级",
+            "name":"今天新增二级",
+            "value":"77ce8550-8f8b-411c-b89e-c675241064f2",
+            "children":[
+               {
+                  "name":"今天新增三级x",
+                  "children":[]
+               }
+            ]
+         }
+      ]
+   }
 ]
 ```
 
